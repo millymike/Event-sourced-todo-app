@@ -17,7 +17,7 @@ public class EventStoreService : IDisposable
             {
                 ConnectivitySettings =
                 {
-                    Address = new Uri("http://localhost:2113")
+                    Address = new Uri(connectionString)
                 },
             });
 
