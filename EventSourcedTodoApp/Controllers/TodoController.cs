@@ -17,15 +17,13 @@ public class TodoController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> CreateTodo([FromBody] TodoItem todoItem)
+    public async Task<IActionResult> CreateTodo( TodoItem todoItem)
     {
         // Save the item creation event to EventStoreDB
         var todoCreatedEvent = new TodoCreatedEvent { Id = todoItem.Id, Title = todoItem.Title };
+        
         await _eventStoreService.SaveEventAsync(todoCreatedEvent);
-
-        // Save the item details in your data store (e.g., database)
-        // Implementation of saving to the database is beyond the scope of this example.
-
+        
         return Ok();
     }
 

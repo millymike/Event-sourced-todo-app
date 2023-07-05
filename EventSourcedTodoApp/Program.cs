@@ -1,4 +1,9 @@
+using EventSourcedTodoApp.Models;
+using EventSourcedTodoApp.Persistence;
 using EventSourcedTodoApp.Services;
+using Microsoft.EntityFrameworkCore;
+using EventStore.Client;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,6 +16,25 @@ builder.Services.AddSingleton<EventStoreService>(sp =>
     var connectionString = configuration.GetSection("EventStore:ConnectionString").Value;
     return new EventStoreService(connectionString);
 });
+
+var appSettings = builder.Configuration.GetSection("AppSettings").Get<AppSettings>();
+
+builder.Services.AddSingleton(appSettings);
+
+builder.Services.AddDbContextFactory<TodoDbContext>(options =>
+{
+    options.UseNpgsql(appSettings.PostgresDsn);
+});
+
+
+builder.Services.AddSingleton<EventStoreClient>(sp =>
+{
+    var options = sp.GetRequiredService<IOptions<EventStoreClientSettings>>();
+    return new EventStoreClient(options.Value);
+});
+
+
+builder.Services.AddHostedService<EventStoreListenerService>();
 
 
 builder.Services.AddControllers();
