@@ -1,7 +1,9 @@
 using EventSourcedTodoApp.Events;
 using EventSourcedTodoApp.Models;
+using EventSourcedTodoApp.Persistence;
 using EventSourcedTodoApp.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace EventSourcedTodoApp.Controllers;
 
@@ -9,38 +11,46 @@ namespace EventSourcedTodoApp.Controllers;
 [Route("api/[controller]")]
 public class TodoController : ControllerBase
 {
-    private readonly EventStoreService _eventStoreService;
+    private readonly Services.IEventStore _eventStore;
+    private readonly TodoDbContext _dbContext;
 
-    public TodoController(EventStoreService eventStoreService)
+    public TodoController(Services.IEventStore eventStore, TodoDbContext dbContext)
     {
-        _eventStoreService = eventStoreService;
+        _eventStore = eventStore;
+        _dbContext = dbContext;
+    }
+    
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<TodoItem>>> GetTodos()
+    {
+        return await _dbContext.TodoItems.ToListAsync();
     }
 
     [HttpPost]
-    public async Task<IActionResult> CreateTodo( TodoItem todoItem)
+    public async Task<IActionResult> CreateTodo(TodoItem todoItem)
     {
         // Save the item creation event to EventStoreDB
         var todoCreatedEvent = new TodoCreatedEvent { Id = todoItem.Id, Title = todoItem.Title };
-        
-        await _eventStoreService.SaveEventAsync(todoCreatedEvent);
-        
+
+        await _eventStore.WriteEvents(
+            $"todo-{todoItem.Id}",
+            new[] { todoCreatedEvent },
+            HttpContext.RequestAborted);
+
         return Ok();
     }
 
-    [HttpGet]
-    public async Task<IActionResult> ListTodos()
+    [HttpPut]
+    public async Task<IActionResult> UpdateTodo(TodoItem todoItem)
     {
-        // Retrieve and return the items from your data store (e.g., database)
-        // Implementation of retrieving from the database is beyond the scope of this example.
-        // You may use an ORM or a simple in-memory list for demonstration purposes.
+        var todoUpdatedEvent = new TodoStatusUpdatedEvent { Id = todoItem.Id, IsCompleted = todoItem.IsCompleted };
 
-        // For demonstration purposes, assume we have a list of  items.
-        var todoItems = new List<TodoItem>
-        {
-            new TodoItem { Id = Guid.NewGuid(), Title = "Sample TODO 1", IsCompleted = false },
-            new TodoItem { Id = Guid.NewGuid(), Title = "Sample TODO 2", IsCompleted = true }
-        };
+        await _eventStore.WriteEvents(
+            $"todo-{todoItem.Id}",
+            new[] { todoUpdatedEvent },
+            HttpContext.RequestAborted);
 
-        return Ok(todoItems);
+        return Ok();
     }
+    
 }

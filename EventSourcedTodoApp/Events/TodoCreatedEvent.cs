@@ -1,7 +1,7 @@
 namespace EventSourcedTodoApp.Events;
 
-public class TodoCreatedEvent
+public class TodoCreatedEvent : IEvent
 {
-    public Guid Id { get; set; }
+    public int Id { get; set; }
     public string Title { get; set; }
 }

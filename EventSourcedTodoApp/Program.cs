@@ -1,50 +1,29 @@
-using EventSourcedTodoApp.Models;
 using EventSourcedTodoApp.Persistence;
 using EventSourcedTodoApp.Services;
-using Microsoft.EntityFrameworkCore;
 using EventStore.Client;
-using Microsoft.Extensions.Options;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Configuration.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
-
-// Add services to the container.
-builder.Services.AddSingleton<EventStoreService>(sp =>
-{
-    var configuration = sp.GetRequiredService<IConfiguration>();
-    var connectionString = configuration.GetSection("EventStore:ConnectionString").Value;
-    return new EventStoreService(connectionString);
-});
-
-var appSettings = builder.Configuration.GetSection("AppSettings").Get<AppSettings>();
-
-builder.Services.AddSingleton(appSettings);
-
-builder.Services.AddDbContextFactory<TodoDbContext>(options =>
-{
-    options.UseNpgsql(appSettings.PostgresDsn);
-});
-
-
-builder.Services.AddSingleton<EventStoreClient>(sp =>
-{
-    var options = sp.GetRequiredService<IOptions<EventStoreClientSettings>>();
-    return new EventStoreClient(options.Value);
-});
-
-
-builder.Services.AddHostedService<EventStoreListenerService>();
-
-
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddSingleton<IEventStore>(sp => new EventSourcedTodoApp.Services.EventStore(new EventStoreClient(
+    new EventStoreClientSettings
+    {
+        ConnectivitySettings =
+        {
+            Address = new Uri(sp.GetRequiredService<IConfiguration>().GetConnectionString("Esdb")!)
+        }
+    })));
+builder.Services.AddDbContextFactory<TodoDbContext>((sp, options) =>
+{
+    options.UseNpgsql(sp.GetRequiredService<IConfiguration>().GetConnectionString("Postgres")!);
+});
+builder.Services.AddHostedService<ReadModelProjection>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -52,9 +31,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
 app.UseAuthorization();
-
 app.MapControllers();
-
 app.Run();

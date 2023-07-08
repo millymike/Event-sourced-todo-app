@@ -1,7 +1,7 @@
 namespace EventSourcedTodoApp.Events;
 
-public class TodoStatusUpdatedEvent
+public class TodoStatusUpdatedEvent : IEvent
 {
-    public Guid Id { get; set; }
+    public int Id { get; set; }
     public bool IsCompleted { get; set; }
 }
